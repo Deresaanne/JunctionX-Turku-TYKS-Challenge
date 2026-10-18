@@ -1,0 +1,30 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { I18nProvider } from '@/lib/aei/i18n';
+import { buildForecast, forecastWeeks } from '@/lib/aei/forecast';
+import { DEDUP_POLICY, type CalculationRequest, type Observation } from '@/lib/aei/resistance';
+import { ForecastSection } from './ForecastSection';
+vi.mock('recharts',()=>({ResponsiveContainer:({children}:{children:React.ReactNode})=><div>{children}</div>,LineChart:()=>null,Line:()=>null,XAxis:()=>null,YAxis:()=>null,Tooltip:()=>null,CartesianGrid:()=>null}));
+const catalog={organisms:[],antibiotics:[],wards:[],specimens:[],periods:{annual:[],fourWeek:[]},dateRange:{start:null,end:null}};
+const request:CalculationRequest={period:{kind:'four-week',isoYear:2025,isoWeek:1},deduplicationPolicy:DEDUP_POLICY,antibiotics:['AMP']};
+const coverage={start:'2020-01-01',end:'2026-12-31'};
+const rows=()=>forecastWeeks(request,coverage,'2027-01-01').slice(-12).flatMap((w,i)=>Array.from({length:100},(_,j):Observation=>({isolateId:`${i}-${j}`,cultureId:`${i}-${j}`,patientId:`p${j}`,sampleDate:w.start,isolateNo:1,organism:'E. coli',ward:'ED',specimen:'urine',cultureResult:'positive',results:[{antibiotic:'AMP',result:j<20?'R':'S'}]})));
+afterEach(cleanup);
+it.each(['en','fi'])('shows actual forecast, model validation and counts in %s',lang=>{
+ localStorage.setItem('aei-lang',lang);const data=buildForecast(rows(),request,coverage,'2027-01-01');
+ render(<I18nProvider><ForecastSection data={data} selected loading={false} error={false} retry={vi.fn()} catalog={catalog}/></I18nProvider>);
+ expect(screen.getByRole('heading',{name:lang==='en'?'Weekly resistance forecast':'Viikoittainen resistenssiennuste'})).toBeInTheDocument();
+ expect(screen.getAllByText('20.0%').length).toBeGreaterThan(1);
+ expect(screen.getAllByText(lang==='en'?/Baseline: previous week's rate.*0.00/:/Vertailumalli: edellisen viikon osuus.*0.00/).length).toBeGreaterThan(0);
+ expect(screen.getByText(lang==='en'?/Eligible results: 100/:/Hyväksytyt tulokset: 100/)).toBeInTheDocument();
+});
+it.each(['en','fi'])('handles small samples, empty, loading, selection and retry in %s',lang=>{
+ localStorage.setItem('aei-lang',lang);const props={catalog,selected:true,loading:false,error:false,retry:vi.fn()};
+ const data=buildForecast(rows().filter(r=>Number(r.isolateId.split('-')[1])<29),request,coverage,'2027-01-01');
+ const {rerender}=render(<I18nProvider><ForecastSection {...props} data={data}/></I18nProvider>);
+ expect(screen.getByText(lang==='en'?/29 results counted.*30/:/29 tulosta laskettu.*30/)).toBeInTheDocument();
+ rerender(<I18nProvider><ForecastSection {...props} loading/></I18nProvider>);expect(screen.getByRole('status')).toBeInTheDocument();
+ rerender(<I18nProvider><ForecastSection {...props} selected={false}/></I18nProvider>);expect(screen.getByText(lang==='en'?/Select one bacterium/:/Valitse yksi bakteeri/)).toBeInTheDocument();
+ rerender(<I18nProvider><ForecastSection {...props} data={buildForecast([],request,coverage,'2027-01-01')}/></I18nProvider>);expect(screen.getByText(lang==='en'?'No data for this selection.':'Tällä valinnalla ei ole aineistoa.')).toBeInTheDocument();
+ rerender(<I18nProvider><ForecastSection {...props} error/></I18nProvider>);fireEvent.click(screen.getByRole('button',{name:lang==='en'?'Try again':'Yritä uudelleen'}));expect(props.retry).toHaveBeenCalledTimes(1);
+});

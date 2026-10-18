@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792231337087,
+      "tag": "0000_migration",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792232637806,
+      "tag": "0001_aei_checkpoint_2a_foundation_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792255270573,
+      "tag": "0002_optimize_aei_role_read_checks",
+      "breakpoints": true
+    }
+  ]
+}
