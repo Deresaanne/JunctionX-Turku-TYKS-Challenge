@@ -40,6 +40,3 @@ https://aeijunction.lovable.app/
 
 Yunseon Lee, Rajarshi Ray
 
-## License
-
-This project is licensed under the MIT License.
